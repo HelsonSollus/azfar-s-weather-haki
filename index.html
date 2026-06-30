@@ -1,409 +1,349 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Smart Weather Station Dashboard</title>
-    
-    <script src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    
-    <style>
-        :root {
-            --bg-color: #0b111e;
-            --card-bg: #141e30;
-            --card-border: #1e293b;
-            --text-main: #ffffff;
-            --text-muted: #94a3b8;
-            
-            --temp-color: #FF9F43;
-            --humidity-color: #00D2FC;
-            --pressure-color: #A855F7;
-            --wind-color: #10B981;
-        }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Weather Station &middot; Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg-0:#0A1524; --bg-1:#0F1B2D; --panel:#16263B; --panel-2:#1B2E47;
+    --line:rgba(120,150,185,.16); --line-2:rgba(120,150,185,.28);
+    --ink:#E7EEF7; --muted:#8499B0; --faint:#5c7795;
+    --temp:#F59E0B; --humid:#38BDF8; --press:#A78BFA; --wind:#2DD4BF;
+    --on:#34D399; --off:#F87171;
+    --radius:18px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 700px at 80% -10%, rgba(56,189,248,.10), transparent 60%),
+      radial-gradient(900px 600px at 0% 110%, rgba(167,139,250,.08), transparent 55%),
+      linear-gradient(180deg,var(--bg-0),var(--bg-1));
+    color:var(--ink); font-family:"Inter",system-ui,sans-serif;
+    min-height:100vh; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:26px 20px 60px}
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+  /* ---- header ---- */
+  header{display:flex; align-items:center; justify-content:space-between;
+    gap:16px; flex-wrap:wrap; margin-bottom:26px}
+  .brand{display:flex; align-items:center; gap:13px}
+  .mark{width:42px; height:42px; border-radius:12px; flex:none;
+    background:linear-gradient(145deg,#1f3a5c,#142639);
+    border:1px solid var(--line-2); display:grid; place-items:center}
+  .mark svg{width:24px; height:24px}
+  .brand h1{font-family:"Space Grotesk"; font-size:1.16rem; font-weight:600;
+    margin:0; letter-spacing:.2px}
+  .brand p{margin:2px 0 0; font-size:.74rem; color:var(--muted);
+    letter-spacing:.14em; text-transform:uppercase}
+  .status{display:flex; align-items:center; gap:10px; padding:9px 15px;
+    background:var(--panel); border:1px solid var(--line); border-radius:999px}
+  .dot{width:9px; height:9px; border-radius:50%; background:var(--off);
+    box-shadow:0 0 0 0 rgba(248,113,113,.6)}
+  .dot.live{background:var(--on); animation:pulse 2s infinite}
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(52,211,153,.55)}
+    70%{box-shadow:0 0 0 9px rgba(52,211,153,0)}
+    100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}
+  }
+  .status .s-text{font-size:.78rem; font-weight:600; letter-spacing:.08em}
+  .status .s-time{font-size:.72rem; color:var(--muted)}
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            padding: 2rem;
-            min-height: 100vh;
-        }
+  /* ---- metric cards ---- */
+  .grid{display:grid; gap:16px; grid-template-columns:repeat(4,1fr)}
+  @media(max-width:880px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:480px){.grid{grid-template-columns:1fr}}
+  .card{position:relative; background:var(--panel);
+    border:1px solid var(--line); border-radius:var(--radius);
+    padding:18px 18px 12px; cursor:pointer; overflow:hidden;
+    min-height:150px;
+    transition:border-color .2s, transform .2s, background .2s}
+  .card:hover{border-color:var(--line-2); transform:translateY(-2px)}
+  .card.active{background:var(--panel-2); border-color:var(--accent)}
+  .card::before{content:""; position:absolute; left:0; top:0; bottom:0;
+    width:3px; background:var(--accent); opacity:.0; transition:opacity .2s}
+  .card.active::before{opacity:1}
+  .c-label{display:flex; align-items:center; gap:8px; font-size:.72rem;
+    text-transform:uppercase; letter-spacing:.13em; color:var(--muted)}
+  .c-label .dotc{width:8px; height:8px; border-radius:50%; background:var(--accent)}
+  .c-val{font-family:"JetBrains Mono",monospace; font-weight:700;
+    font-size:2.15rem; line-height:1.05; margin:12px 0 2px;
+    font-variant-numeric:tabular-nums; transition:color .25s}
+  .c-val .u{font-size:.95rem; color:var(--muted); font-weight:500; margin-left:3px}
+  .c-spark{position:relative; height:42px; margin-top:8px}
+  .c-spark canvas{position:absolute!important; left:0; top:0; width:100%!important; height:100%!important}
+  .c-foot{font-size:.72rem; color:var(--muted); margin-top:4px; min-height:16px}
+  .c-foot b{color:var(--ink); font-weight:600}
+  .flash{animation:flash .5s ease}
+  @keyframes flash{0%{color:#fff}100%{}}
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
+  /* ---- big chart ---- */
+  .chart-card{margin-top:18px; background:var(--panel);
+    border:1px solid var(--line); border-radius:var(--radius); padding:20px 22px}
+  .chart-head{display:flex; align-items:baseline; justify-content:space-between;
+    gap:12px; flex-wrap:wrap; margin-bottom:8px}
+  .chart-head h2{font-family:"Space Grotesk"; font-weight:600; font-size:1.02rem;
+    margin:0; letter-spacing:.2px}
+  .chart-head .hint{font-size:.74rem; color:var(--muted)}
+  .chart-box{height:300px; position:relative}
+  @media(max-width:480px){.chart-box{height:240px}}
 
-        .header h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-        }
-
-        .status-badge {
-            background: rgba(255, 255, 255, 0.05);
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            border: 1px solid var(--card-border);
-            color: var(--text-muted);
-        }
-
-        .grid-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .card:hover, .card.active {
-            transform: translateY(-2px);
-        }
-
-        .card.active[data-metric="temperature"] { border-color: var(--temp-color); box-shadow: 0 0 15px rgba(255, 159, 67, 0.1); }
-        .card.active[data-metric="humidity"] { border-color: var(--humidity-color); box-shadow: 0 0 15px rgba(0, 210, 252, 0.1); }
-        .card.active[data-metric="pressure"] { border-color: var(--pressure-color); box-shadow: 0 0 15px rgba(168, 85, 247, 0.1); }
-        .card.active[data-metric="wind_speed"] { border-color: var(--wind-color); box-shadow: 0 0 15px rgba(16, 185, 129, 0.1); }
-
-        .card-title {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .card-title::before {
-            content: '';
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        .card[data-metric="temperature"] .card-title::before { background-color: var(--temp-color); }
-        .card[data-metric="humidity"] .card-title::before { background-color: var(--humidity-color); }
-        .card[data-metric="pressure"] .card-title::before { background-color: var(--pressure-color); }
-        .card[data-metric="wind_speed"] .card-title::before { background-color: var(--wind-color); }
-
-        .card-value {
-            font-size: 2.2rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
-
-        .card[data-metric="temperature"] .card-value { color: var(--temp-color); }
-        .card[data-metric="humidity"] .card-value { color: var(--humidity-color); }
-        .card[data-metric="pressure"] .card-value { color: var(--pressure-color); }
-        .card[data-metric="wind_speed"] .card-value { color: var(--wind-color); }
-
-        .sparkline-container {
-            width: 100%;
-            height: 50px;
-            margin-bottom: 0.75rem;
-        }
-
-        .card-footer {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .main-chart-container {
-            background-color: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 12px;
-            padding: 2rem;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .chart-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .chart-subtitle {
-            font-size: 0.8rem;
-            color: var(--text-muted);
-        }
-
-        .chart-wrapper {
-            position: relative;
-            height: 350px;
-            width: 100%;
-        }
-    </style>
+  footer{margin-top:26px; text-align:center; font-size:.74rem; color:#5c7795}
+  footer a{color:var(--humid); text-decoration:none}
+  .empty{color:var(--muted); font-size:.9rem; text-align:center; padding:30px}
+</style>
 </head>
 <body>
+<div class="wrap">
 
-    <div class="header">
-        <h1>Cloud Weather Telemetry Platform</h1>
-        <div id="status" class="status-badge">Connecting to cloud system...</div>
+  <header>
+    <div class="brand">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#7FD3FF" stroke-width="1.7"
+             stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.6-1.3A3.5 3.5 0 0 1 18 18Z"/>
+          <path d="M9 21l1-2M13 21l1-2M5 21l1-2"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Smart Weather Station</h1>
+        <p>SFDC &middot; KKTM TVETMARA PJ</p>
+      </div>
+    </div>
+    <div class="status">
+      <span class="dot" id="statusDot"></span>
+      <div>
+        <div class="s-text" id="statusText">CONNECTING</div>
+        <div class="s-time" id="statusTime">&mdash;</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid" id="cards">
     </div>
 
-    <div class="grid-container">
-        <div class="card active" data-metric="temperature" onclick="switchMetric('temperature')">
-            <div class="card-title">Temperature</div>
-            <div id="val-temperature" class="card-value">--.-<span style="font-size:1.2rem"> °C</span></div>
-            <div class="sparkline-container"><canvas id="spark-temperature"></canvas></div>
-            <div id="diff-temperature" class="card-footer">→ 0.0 °C since last</div>
-        </div>
-
-        <div class="card" data-metric="humidity" onclick="switchMetric('humidity')">
-            <div class="card-title">Humidity</div>
-            <div id="val-humidity" class="card-value">--<span style="font-size:1.2rem"> %</span></div>
-            <div class="sparkline-container"><canvas id="spark-humidity"></canvas></div>
-            <div id="diff-humidity" class="card-footer">→ 0 % since last</div>
-        </div>
-
-        <div class="card" data-metric="pressure" onclick="switchMetric('pressure')">
-            <div class="card-title">Pressure</div>
-            <div id="val-pressure" class="card-value">----<span style="font-size:1.2rem"> hPa</span></div>
-            <div class="sparkline-container"><canvas id="spark-pressure"></canvas></div>
-            <div id="diff-pressure" class="card-footer">→ 0 hPa since last</div>
-        </div>
-
-        <div class="card" data-metric="wind_speed" onclick="switchMetric('wind_speed')">
-            <div class="card-title">Wind Speed</div>
-            <div id="val-wind_speed" class="card-value">--.-<span style="font-size:1.2rem"> m/s</span></div>
-            <div class="sparkline-container"><canvas id="spark-wind_speed"></canvas></div>
-            <div id="diff-wind_speed" class="card-footer">→ 0.0 m/s since last</div>
-        </div>
+  <div class="chart-card">
+    <div class="chart-head">
+      <h2 id="chartTitle">Temperature trend</h2>
+      <span class="hint">tap a card above to switch metric &middot; last 40 readings</span>
     </div>
+    <div class="chart-box"><canvas id="mainChart"></canvas></div>
+  </div>
 
-    <div class="main-chart-container">
-        <div class="chart-header">
-            <div id="main-chart-title" class="chart-title">Temperature Trend</div>
-            <div class="chart-subtitle">tap a card above to switch metric · last 40 readings</div>
-        </div>
-        <div class="chart-wrapper">
-            <canvas id="mainTrendChart"></canvas>
-        </div>
-    </div>
+  <footer>
+    Live IoT telemetry &middot; data via ESP32 &amp; WeatherAPI.com &middot; 
+    hosted securely on Cloud Architecture
+  </footer>
+</div>
 
-    <script>
-        // =================================================================
-        // 🛠️ CONFIGURATION - PASTE YOUR SUPABASE CREDENTIALS HERE
-        // =================================================================
-        const SUPABASE_URL = "https://picfdcjhupsertopqhey.supabase.co"; 
-        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpY2ZkY2podXBzZXJ0b3BxaGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MDIwNjcsImV4cCI6MjA5ODM3ODA2N30.ETYwUnoolA9sm1-DQKre9G4BRy6MAUBduvgaVvzs3Zw";
+<script>
+/* ---------- SUPABASE CLOUD DEPLOYMENT CONFIGURATION ---------- */
+const SUPABASE_URL = "https://picfdcjhupsertopqhey.supabase.co"; 
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpY2ZkY2podXBzZXJ0b3BxaGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MDIwNjcsImV4cCI6MjA5ODM3ODA2N30.ETYwUnoolA9sm1-DQKre9G4BRy6MAUBduvgaVvzs3Zw";
 
-        let currentMetric = 'temperature';
-        let mainChartInstance = null;
-        let sparkInstances = {};
-        
-        // Custom transparency mix: Solid borders with a gorgeous 15% opacity matching trail
-        const metricConfigs = {
-            temperature: {
-                label: 'Temperature (°C)',
-                borderColor: '#FF9F43',
-                backgroundColor: 'rgba(255, 159, 67, 0.15)', 
-                unit: ' °C'
-            },
-            humidity: {
-                label: 'Humidity (%)',
-                borderColor: '#00D2FC',
-                backgroundColor: 'rgba(0, 210, 252, 0.15)',
-                unit: ' %'
-            },
-            pressure: {
-                label: 'Atmospheric Pressure (hPa)',
-                borderColor: '#A855F7',
-                backgroundColor: 'rgba(168, 85, 247, 0.15)',
-                unit: ' hPa'
-            },
-            wind_speed: {
-                label: 'Wind Velocity (m/s)',
-                borderColor: '#10B981',
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                unit: ' m/s'
-            }
-        };
+const METRICS = {
+  temperature:{label:"Temperature", unit:"\u00B0C", color:"#F59E0B", dp:1},
+  humidity:   {label:"Humidity",    unit:"%",       color:"#38BDF8", dp:0},
+  pressure:   {label:"Pressure",    unit:"hPa",     color:"#A78BFA", dp:0},
+  wind_speed: {label:"Wind speed",  unit:"m/s",     color:"#2DD4BF", dp:1},
+};
+const KEYS = Object.keys(METRICS);
+const STALE_AFTER = 90;        // seconds without new data => OFFLINE
+const POLL_LATEST = 5000;      // ms
+const POLL_HISTORY = 15000;    // ms
 
-        async function loadDashboardData() {
-            let fetchedData = [];
-            try {
-                const response = await fetch(`${SUPABASE_URL}/rest/v1/readings?order=created_at.desc&limit=40`, {
-                    method: 'GET',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`
-                    }
-                });
+let selected = "temperature";
+let lastValues = {};
+const sparks = {};
+let mainChart;
 
-                if (!response.ok) throw new Error("Database network error");
-                
-                const rawData = await response.json();
-                fetchedData = rawData.reverse(); 
-                
-                if (fetchedData.length === 0) {
-                    document.getElementById('status').innerText = 'Online (Waiting for ESP)';
-                    return;
-                }
+/* Static cloud alternative: seed defaults to null, pulled instantly on mount */
+const SEED = null;
 
-                document.getElementById('status').innerText = `Live Sync Active (${new Date().toLocaleTimeString()})`;
-                updateMetricCards(fetchedData);
+/* ---------- build cards ---------- */
+const cardsEl = document.getElementById('cards');
+KEYS.forEach(k=>{
+  const m = METRICS[k];
+  const el = document.createElement('div');
+  el.className = 'card' + (k===selected ? ' active':'');
+  el.style.setProperty('--accent', m.color);
+  el.dataset.key = k;
+  el.innerHTML = `
+    <div class="c-label"><span class="dotc"></span>${m.label}</div>
+    <div class="c-val" id="val-${k}" style="color:${m.color}">--<span class="u">${m.unit}</span></div>
+    <div class="c-spark"><canvas id="spark-${k}"></canvas></div>
+    <div class="c-foot" id="foot-${k}">&nbsp;</div>`;
+  el.addEventListener('click', ()=>selectMetric(k));
+  cardsEl.appendChild(el);
+});
 
-            } catch (err) {
-                console.error("Database Fetch Error:", err);
-                document.getElementById('status').innerText = 'Supabase Connection Refused';
-                return; 
-            }
+/* ---------- sparklines ---------- */
+function makeSpark(k){
+  const ctx = document.getElementById('spark-'+k);
+  sparks[k] = new Chart(ctx,{
+    type:'line',
+    data:{labels:[],datasets:[{data:[],borderColor:METRICS[k].color,
+      borderWidth:2,tension:.4,pointRadius:0,
+      fill:true,backgroundColor:hexA(METRICS[k].color,.12)}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:false,
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},y:{display:false}}}
+  });
+}
+KEYS.forEach(makeSpark);
 
-            // Render visuals safely outside the database block to isolate bugs
-            try {
-                if (typeof Chart !== 'undefined') {
-                    renderSparklines(fetchedData);
-                    renderMainChart(fetchedData);
-                }
-            } catch (chartErr) {
-                console.error("Chart Rendering Error:", chartErr);
-            }
-        }
+/* ---------- main chart ---------- */
+function makeMainChart(){
+  const ctx = document.getElementById('mainChart');
+  mainChart = new Chart(ctx,{
+    type:'line',
+    data:{labels:[],datasets:[{label:METRICS[selected].label,data:[],
+      borderColor:METRICS[selected].color,borderWidth:2.4,tension:.35,
+      pointRadius:0,fill:true,backgroundColor:hexA(METRICS[selected].color,.10)}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},
+        tooltip:{backgroundColor:'#0F1B2D',borderColor:'#27405e',
+          borderWidth:1,padding:10,titleColor:'#8499B0',bodyColor:'#E7EEF7'}},
+      scales:{
+        x:{grid:{color:'rgba(120,150,185,.08)'},
+           ticks:{color:'#6f88a3',maxTicksLimit:7,font:{size:11}}},
+        y:{grid:{color:'rgba(120,150,185,.10)'},
+           ticks:{color:'#6f88a3',font:{size:11}}}}}
+  });
+}
+makeMainChart();
 
-        function updateMetricCards(data) {
-            const latest = data[data.length - 1];
-            const previous = data.length > 1 ? data[data.length - 2] : latest;
+function selectMetric(k){
+  selected = k;
+  document.querySelectorAll('.card').forEach(c=>
+    c.classList.toggle('active', c.dataset.key===k));
+  document.getElementById('chartTitle').textContent = METRICS[k].label + " trend";
+  const ds = mainChart.data.datasets[0];
+  ds.label = METRICS[k].label;
+  ds.borderColor = METRICS[k].color;
+  ds.backgroundColor = hexA(METRICS[k].color,.10);
+  refreshHistory();   
+}
 
-            Object.keys(metricConfigs).forEach(metric => {
-                const currentVal = latest[metric];
-                const prevVal = previous[metric];
-                const diff = (currentVal - prevVal).toFixed(metric === 'humidity' || metric === 'pressure' ? 0 : 1);
-                
-                document.getElementById(`val-${metric}`).innerHTML = `${currentVal}<span style="font-size:1.2rem">${metricConfigs[metric].unit}</span>`;
-                const sign = diff > 0 ? '+' : '';
-                document.getElementById(`diff-${metric}`).innerText = `${sign}${diff} ${metricConfigs[metric].unit} since last`;
-            });
-        }
+/* ---------- helpers ---------- */
+function hexA(hex,a){
+  const n=parseInt(hex.slice(1),16);
+  // Fixed the syntax error by calculating the true Blue channel (n & 255) instead of leaking a CSS string
+  return `rgba(${(n>>16)&255}, ${(n>>8)&255}, ${n&255}, ${a})`;
+}
+function fmt(v,dp){return (v===null||v===undefined||v==="")?"--":Number(v).toFixed(dp);}
+function timeLabel(epoch){const d=new Date(epoch*1000);
+  return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});}
+function ago(sec){
+  if(sec<60) return sec+"s ago";
+  if(sec<3600) return Math.floor(sec/60)+"m ago";
+  return Math.floor(sec/3600)+"h ago";
+}
 
-        function renderSparklines(data) {
-            Object.keys(metricConfigs).forEach(metric => {
-                const canvas = document.getElementById(`spark-${metric}`);
-                if (!canvas) return;
+/* ---------- render latest ---------- */
+function renderLatest(d){
+  const dot=document.getElementById('statusDot');
+  const txt=document.getElementById('statusText');
+  const tm =document.getElementById('statusTime');
+  if(!d){dot.classList.remove('live');txt.textContent='NO DATA';
+    tm.textContent='waiting for ESP32';return;}
 
-                const values = data.map(row => row[metric]);
-                
-                if (sparkInstances[metric]) {
-                    sparkInstances[metric].data.datasets[0].data = values;
-                    sparkInstances[metric].update('none');
-                    return;
-                }
+  const age = Math.max(0, Math.floor(Date.now()/1000) - d.epoch);
+  const online = age <= STALE_AFTER;
+  dot.classList.toggle('live', online);
+  txt.textContent = online ? 'LIVE' : 'OFFLINE';
+  tm.textContent  = 'updated ' + ago(age);
 
-                sparkInstances[metric] = new Chart(canvas, {
-                    type: 'line',
-                    data: {
-                        labels: values,
-                        datasets: [{
-                            data: values,
-                            borderColor: metricConfigs[metric].borderColor,
-                            backgroundColor: metricConfigs[metric].backgroundColor,
-                            fill: true,
-                            borderWidth: 1.5,
-                            pointRadius: 0,
-                            tension: 0.4
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: { legend: { display: false }, tooltip: { enabled: false } },
-                        scales: { x: { display: false }, y: { display: false } }
-                    }
-                });
-            });
-        }
+  KEYS.forEach(k=>{
+    const m=METRICS[k];
+    const valEl=document.getElementById('val-'+k);
+    const v=d[k];
+    valEl.innerHTML = fmt(v,m.dp)+`<span class="u">${m.unit}</span>`;
+    
+    if(lastValues[k]!==undefined && v!==null && lastValues[k]!==null){
+      const diff=(Number(v)-Number(lastValues[k]));
+      const f=document.getElementById('foot-'+k);
+      const arrow = diff>0?'\u2191':diff<0?'\u2193':'\u2192';
+      f.innerHTML = `${arrow} <b>${Math.abs(diff).toFixed(m.dp)}</b> ${m.unit} since last`;
+      if(diff!==0){valEl.classList.remove('flash');void valEl.offsetWidth;
+        valEl.classList.add('flash');}
+    }
+    lastValues[k]=v;
+  });
+}
 
-        function renderMainChart(data) {
-            const ctx = document.getElementById('mainTrendChart').getContext('2d');
-            const timelineLabels = data.map(row => {
-                const t = new Date(row.created_at);
-                return t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            });
-            const metricValues = data.map(row => row[currentMetric]);
-            const config = metricConfigs[currentMetric];
+/* ---------- render history ---------- */
+function renderHistory(rows){
+  const labels = rows.map(r=>timeLabel(r.epoch));
+  KEYS.forEach(k=>{
+    const s=sparks[k];
+    s.data.labels=labels;
+    s.data.datasets[0].data=rows.map(r=>r[k]===null?null:Number(r[k]));
+    s.update();
+  });
+  mainChart.data.labels=labels;
+  mainChart.data.datasets[0].data=rows.map(r=>r[selected]===null?null:Number(r[selected]));
+  mainChart.update();
+}
 
-            if (mainChartInstance) {
-                mainChartInstance.data.labels = timelineLabels;
-                mainChartInstance.data.datasets[0].data = metricValues;
-                mainChartInstance.data.datasets[0].label = config.label;
-                mainChartInstance.data.datasets[0].borderColor = config.borderColor;
-                mainChartInstance.data.datasets[0].backgroundColor = config.backgroundColor;
-                mainChartInstance.update();
-                return;
-            }
+/* ---------- cloud-adapted polling ---------- */
+async function refreshLatest(){
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/readings?select=*&order=reading_time.desc&limit=1`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Cache-Control': 'no-store'
+      }
+    });
+    const data = await r.json();
+    if (Array.isArray(data) && data.length > 0) {
+      const d = data[0];
+      d.epoch = Math.floor(Date.parse(d.reading_time) / 1000);
+      renderLatest(d);
+    } else {
+      renderLatest(null);
+    }
+  }catch(e){
+    document.getElementById('statusDot').classList.remove('live');
+    document.getElementById('statusText').textContent='OFFLINE';
+    document.getElementById('statusTime').textContent='server unreachable';
+  }
+}
 
-            mainChartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: timelineLabels,
-                    datasets: [{
-                        label: config.label,
-                        data: metricValues,
-                        borderColor: config.borderColor,
-                        backgroundColor: config.backgroundColor, 
-                        fill: true,
-                        borderWidth: 3,
-                        pointBackgroundColor: config.borderColor,
-                        pointHoverRadius: 7,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#64748b' }
-                        },
-                        y: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#64748b' }
-                        }
-                    }
-                }
-            });
-        }
+async function refreshHistory(){
+  try{
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/readings?select=*&order=reading_time.desc&limit=40`, {
+      method: 'GET',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Cache-Control': 'no-store'
+      }
+    });
+    const data = await r.json();
+    if (Array.isArray(data) && data.length) {
+      const rows = data.map(item => ({
+        ...item,
+        epoch: Math.floor(Date.parse(item.reading_time) / 1000)
+      })).reverse();
+      renderHistory(rows);
+    }
+  }catch(e){/* keep last chart */}
+}
 
-        function switchMetric(metric) {
-            currentMetric = metric;
-            document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
-            document.querySelector(`.card[data-metric="${metric}"]`).classList.add('active');
-            document.getElementById('main-chart-title').innerText = `${metric.replace('_', ' ').toUpperCase()} TREND`;
-            loadDashboardData();
-        }
-
-        loadDashboardData();
-        setInterval(loadDashboardData, 5000);
-    </script>
+/* seed instantly from mountain calls, then go live */
+if(SEED) renderLatest(SEED);
+refreshLatest(); refreshHistory();
+setInterval(refreshLatest, POLL_LATEST);
+setInterval(refreshHistory, POLL_HISTORY);
+</script>
 </body>
 </html>
