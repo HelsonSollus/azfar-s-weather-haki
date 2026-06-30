@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Weather Station Dashboard</title>
     
-    <script src="./chart.umd.min.js"></script>
+    <script src="https://unpkg.com/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
     <style>
         :root {
@@ -15,7 +15,6 @@
             --text-main: #ffffff;
             --text-muted: #94a3b8;
             
-            /* Metric Accent Colors */
             --temp-color: #FF9F43;
             --humidity-color: #00D2FC;
             --pressure-color: #A855F7;
@@ -57,7 +56,6 @@
             color: var(--text-muted);
         }
 
-        /* 4-Column Grid for Weather Cards */
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -131,7 +129,6 @@
             color: var(--text-muted);
         }
 
-        /* Main Historical Trend Graph Container */
         .main-chart-container {
             background-color: var(--card-bg);
             border: 1px solid var(--card-border);
@@ -214,14 +211,14 @@
         // =================================================================
         // 🛠️ CONFIGURATION - PASTE YOUR SUPABASE CREDENTIALS HERE
         // =================================================================
-        const SUPABASE_URL = "https://picfdcjhupsertopqhey.supabase.co"; // 👈 Keep ending at .co (No /rest/v1/)
+        const SUPABASE_URL = "https://picfdcjhupsertopqhey.supabase.co"; 
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBpY2ZkY2podXBzZXJ0b3BxaGV5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MDIwNjcsImV4cCI6MjA5ODM3ODA2N30.ETYwUnoolA9sm1-DQKre9G4BRy6MAUBduvgaVvzs3Zw";
 
         let currentMetric = 'temperature';
         let mainChartInstance = null;
         let sparkInstances = {};
         
-        // Premium Visual Configurations: Solid outlines + 15% transparent soft trails
+        // Custom transparency mix: Solid borders with a gorgeous 15% opacity matching trail
         const metricConfigs = {
             temperature: {
                 label: 'Temperature (°C)',
@@ -249,8 +246,8 @@
             }
         };
 
-        // Fetch telemetry loop
         async function loadDashboardData() {
+            let fetchedData = [];
             try {
                 const response = await fetch(`${SUPABASE_URL}/rest/v1/readings?order=created_at.desc&limit=40`, {
                     method: 'GET',
@@ -260,28 +257,36 @@
                     }
                 });
 
-                if (!response.ok) throw new Error("Database connectivity error");
+                if (!response.ok) throw new Error("Database network error");
                 
-                const data = await response.reverse(); // Flip to chronological order (left-to-right)
+                const rawData = await response.json();
+                fetchedData = rawData.reverse(); 
                 
-                if (data.length === 0) {
+                if (fetchedData.length === 0) {
                     document.getElementById('status').innerText = 'Online (Waiting for ESP)';
                     return;
                 }
 
-                document.getElementById('status').innerText = `Live Analytics Sync Done (${new Date().toLocaleTimeString()})`;
-                
-                updateMetricCards(data);
-                renderSparklines(data);
-                renderMainChart(data);
+                document.getElementById('status').innerText = `Live Sync Active (${new Date().toLocaleTimeString()})`;
+                updateMetricCards(fetchedData);
 
             } catch (err) {
-                console.error(err);
+                console.error("Database Fetch Error:", err);
                 document.getElementById('status').innerText = 'Supabase Connection Refused';
+                return; 
+            }
+
+            // Render visuals safely outside the database block to isolate bugs
+            try {
+                if (typeof Chart !== 'undefined') {
+                    renderSparklines(fetchedData);
+                    renderMainChart(fetchedData);
+                }
+            } catch (chartErr) {
+                console.error("Chart Rendering Error:", chartErr);
             }
         }
 
-        // Display current values and compute directional differences
         function updateMetricCards(data) {
             const latest = data[data.length - 1];
             const previous = data.length > 1 ? data[data.length - 2] : latest;
@@ -291,16 +296,12 @@
                 const prevVal = previous[metric];
                 const diff = (currentVal - prevVal).toFixed(metric === 'humidity' || metric === 'pressure' ? 0 : 1);
                 
-                // Update text number
                 document.getElementById(`val-${metric}`).innerHTML = `${currentVal}<span style="font-size:1.2rem">${metricConfigs[metric].unit}</span>`;
-                
-                // Update comparative footer
                 const sign = diff > 0 ? '+' : '';
                 document.getElementById(`diff-${metric}`).innerText = `${sign}${diff} ${metricConfigs[metric].unit} since last`;
             });
         }
 
-        // Render card background preview sparklines
         function renderSparklines(data) {
             Object.keys(metricConfigs).forEach(metric => {
                 const canvas = document.getElementById(`spark-${metric}`);
@@ -338,7 +339,6 @@
             });
         }
 
-        // Generate main timeline canvas with premium color trail profiles
         function renderMainChart(data) {
             const ctx = document.getElementById('mainTrendChart').getContext('2d');
             const timelineLabels = data.map(row => {
@@ -366,7 +366,7 @@
                         label: config.label,
                         data: metricValues,
                         borderColor: config.borderColor,
-                        backgroundColor: config.backgroundColor, // Applied transparency trail
+                        backgroundColor: config.backgroundColor, 
                         fill: true,
                         borderWidth: 3,
                         pointBackgroundColor: config.borderColor,
@@ -391,26 +391,17 @@
                         }
                     }
                 }
-              });
-
+            });
         }
 
-        // Handle metric switching tabs cleanly
         function switchMetric(metric) {
             currentMetric = metric;
-            
-            // Toggle active styling states on HTML elements
             document.querySelectorAll('.card').forEach(c => c.classList.remove('active'));
             document.querySelector(`.card[data-metric="${metric}"]`).classList.add('active');
-            
-            // Alter title display tag
             document.getElementById('main-chart-title').innerText = `${metric.replace('_', ' ').toUpperCase()} TREND`;
-            
-            // Re-fetch instantly to smooth shift data vectors
             loadDashboardData();
         }
 
-        // Active Pooling Loops - Refreshes silently every 5 seconds
         loadDashboardData();
         setInterval(loadDashboardData, 5000);
     </script>
